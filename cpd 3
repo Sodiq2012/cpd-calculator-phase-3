@@ -1,0 +1,38 @@
+from datetime import date, datetime,timedelta
+import pandas as pd  
+import numpy as np
+lastSupplydate = ['2023-04-18 10:12:23','2023-04-15 08:10:23', '2023-04-10 04:12:23', '2023-04-18 16:12:00']
+currentSupplydate = ['2023-05-18 16:19:23','2023-05-10 10:50:23','2023-05-09 14:55:23','2023-04-30 10:12:23']
+qbs_in_percent = [2,5,10,3]
+qs_in_ltrs = [1500,1870.75,2050.87,2100]
+SiteID = ['lg2144','b3024','t0199','b5098']
+column = ['SiteID ','last_supply_date', 'current_supply_date','quantity supply(ltrs)','quantity before supply(%)']
+df2 = pd.DataFrame(list(zip(SiteID,lastSupplydate,currentSupplydate,qs_in_ltrs,qbs_in_percent)),columns= column) 
+df2.to_excel('site_supply_data.xlsx')
+
+df1 = pd.read_excel('site_supply_data.xlsx').drop('Unnamed: 0',axis=1)
+df1[['last_supply_date', 'current_supply_date']] = df1[['last_supply_date', 'current_supply_date']].apply(pd.to_datetime)
+#convert the dateframe object or strings objects to datetime object.
+#df1['days_of_consumption'] = round((df1.current_supply_date - df1.last_supply_date)/pd.Timedelta(days=1),0)
+df1['days_of_consumption'] = df1['current_supply_date'] - df1['last_supply_date']
+df1['days_of_consumption'] = df1['days_of_consumption'].dt.days
+df1['QBS_in_ltrs'] = df1['quantity before supply(%)'].div(100).mul(2500 )# QBS : Quantity Before Supply litres 
+
+Tolerance = 50
+df1.loc[df1['quantity before supply(%)'] >= 2,'TQAS_in_ltrs']  = df1['QBS_in_ltrs'] + df1['quantity supply(ltrs)'] + Tolerance 
+# TQS : Total Quantity After Supply in litres
+df1.loc[df1['quantity before supply(%)'] < 2,'TQAS_in_ltrs']  = df1['QBS_in_ltrs'] + df1['quantity supply(ltrs)']
+df1['TQAS_in_percent'] = df1['TQAS_in_ltrs'].div(2500).mul(100).round() # Total Quantity After Supply in %
+df1['CPD_in_litres'] = df1['TQAS_in_ltrs'].div(df1['days_of_consumption']).round(2)    # CPD : Consumption per Day in litres
+df1['CPD_in_percent'] = df1['CPD_in_litres'].div(2500).mul(100).apply(np.floor) # CPD : Consumption per Day in %
+
+def dy(d):# function to itrate through days_of_consumption.
+    for i in df1['days_of_consumption']:
+        return i
+df1['next_supply_date'] = df1['current_supply_date'] + pd.Timedelta(days=dy('i'))
+
+
+df1
+
+
+
